@@ -26,16 +26,19 @@ def train_dqn(agent: DQN,
         state = env.reset()
         episode_reward = 0.0
         done = False
+        step = 0
 
         while not done:
             action = agent.get_action(state, epsilon)
             next_state, reward, done, info = env.step(action)
 
             agent.update_memory(state, action, reward, next_state, done)
-            agent.train()
+            if step % 4 == 0:
+                agent.train()
 
             state = next_state
             episode_reward += reward
+            step += 1
 
         episode_rewards.append(episode_reward)
         epsilon = max(epsilon_end, epsilon * epsilon_decay)

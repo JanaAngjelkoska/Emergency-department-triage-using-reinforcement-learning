@@ -8,25 +8,25 @@ from baselines.policies import FCFSPolicy, FixedPriorityPolicy
 from training.trainer import train_dqn, train_ddqn
 from training.evaluator import evaluate_agent, evaluate_baseline
 
-NUM_PRIORITY_CLASSES = 3
-NUM_SERVERS = 3
-ARRIVAL_RATES = [0.08, 0.12, 0.05] #, 0.07, 0.04]
-SERVICE_RATES =  [0.15, 0.10, 0.08] #, 0.06, 0.05]
-ACUITY_WEIGHTS = [3.0, 2.0, 1.0]
+NUM_PRIORITY_CLASSES = 5
+NUM_SERVERS = 4
+ARRIVAL_RATES = [0.0270, 0.1556, 0.2516, 0.0319, 0.0013]
+SERVICE_RATES = [0.1642, 0.1164, 0.1438, 0.2864, 0.4055]
+ACUITY_WEIGHTS = [5.0, 4.0, 3.0, 2.0, 1.0]
 MAX_PATIENTS = 20
 MAX_STEPS = 500
 
-HIDDEN_DIM = 128
-LEARNING_RATE = 0.001
+HIDDEN_DIM = 256
+LEARNING_RATE = 0.0005
 DISCOUNT_FACTOR = 0.99
 BATCH_SIZE = 64
 MEMORY_SIZE = 50000
 
 NUM_EPISODES = 1000
 EPSILON_START = 1.0
-EPSILON_END = 0.05
-EPSILON_DECAY = 0.990
-TARGET_UPDATE_FREQ = 100
+EPSILON_DECAY = 0.995
+EPSILON_END = 0.01
+TARGET_UPDATE_FREQ = 50
 
 EVAL_FREQ = 100
 EVAL_EPISODES = 200
@@ -76,18 +76,32 @@ def make_ddqn_agent(state_dim: int, num_actions: int) -> DDQN:
 
 
 def print_results_table(results: dict[str, dict]) -> None:
-    header = f"{'Policy':<20} {'Avg Reward':>12} {'Avg Wait':>12} {'Wtd Wait':>12} {'Utilization':>12} {'Avg Served':>12}"
+    num_classes = len(next(iter(results.values()))["per_class_avg_wait"])
+
+    header = (
+        f"{'Policy':<20} {'Avg Reward':>12} {'Avg Wait':>10} {'Wtd Wait':>10} "
+        f"{'Util':>8} {'Served':>8} {'Lost':>8} {'In Queue':>10} {'In Service':>12}"
+        + "".join(f" {f'W_cls{k}':>10}" for k in range(num_classes))
+    )
+
     print("\n" + "=" * len(header))
     print(header)
     print("-" * len(header))
 
-    for name, metrics in results.items():
-        print(f"{name:<20} "
-              f"{metrics['avg_episode_reward']:>12.2f} "
-              f"{metrics['average_waiting_time']:>12.4f} "
-              f"{metrics['weighted_waiting_time']:>12.4f} "
-              f"{metrics['system_utilization']:>12.4f} "
-              f"{metrics['avg_patients_served']:>12.2f}")
+    for name, m in results.items():
+        row = (
+            f"{name:<20} "
+            f"{m['avg_episode_reward']:>12.2f} "
+            f"{m['average_waiting_time']:>10.4f} "
+            f"{m['weighted_waiting_time']:>10.4f} "
+            f"{m['system_utilization']:>8.4f} "
+            f"{m['avg_patients_served']:>8.2f} "
+            f"{m['avg_lost_patients']:>8.2f} "
+            f"{m['avg_patients_remaining_in_queue']:>10.2f} "
+            f"{m['avg_patients_in_service']:>12.2f}"
+            + "".join(f" {m['per_class_avg_wait'][k]:>10.4f}" for k in range(num_classes))
+        )
+        print(row)
 
     print("=" * len(header) + "\n")
 

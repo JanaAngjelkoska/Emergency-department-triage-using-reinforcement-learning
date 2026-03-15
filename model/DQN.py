@@ -20,6 +20,10 @@ class DQN:
                  batch_size: int = 32,
                  memory_size: int = 10000):
 
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = model.to(self.device)
+        self.target_model = target_model.to(self.device)
+
         self.state_space_shape = state_space_shape
         self.num_actions = num_actions
         self.discount_factor = discount_factor
@@ -30,7 +34,7 @@ class DQN:
         self.model = model
         self.target_model = target_model
 
-        self.criterion = nn.MSELoss()
+        self.criterion =  nn.SmoothL1Loss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
 
         self.update_target_model()
@@ -44,7 +48,7 @@ class DQN:
                       reward: float,
                       next_state: np.ndarray,
                       done: bool) -> None:
-        normalized_reward = reward / 100.0
+        normalized_reward = np.clip(reward / 10.0, -10.0, 10.0)
         self.memory.append((state, action, normalized_reward, next_state, done))
 
     def update_target_model(self) -> None:
@@ -54,12 +58,14 @@ class DQN:
         if np.random.rand() < epsilon:
             return np.random.randint(0, self.num_actions)
 
-        state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
+        state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(self.device)
         with torch.no_grad():
             q_values = self.model(state_tensor)
             return torch.argmax(q_values).item()
 
     def train(self) -> None:
+
+
         if len(self.memory) < self.batch_size:
             return
 
@@ -84,9 +90,9 @@ class DQN:
             actions.append(action)
             targets.append(target_q)
 
-        states_tensor = torch.tensor(np.array(states), dtype=torch.float32)
-        actions_tensor = torch.tensor(actions, dtype=torch.long)
-        targets_tensor = torch.tensor(targets, dtype=torch.float32)
+        states_tensor = torch.tensor(np.array(states), dtype=torch.float32).to(self.device)
+        actions_tensor = torch.tensor(actions, dtype=torch.long).to(self.device)
+        targets_tensor = torch.tensor(targets, dtype=torch.float32).to(self.device)
 
         self.optimizer.zero_grad()
 
